@@ -1,18 +1,24 @@
 package com.my131.backend.service;
 
+import com.my131.backend.dto.AuthRequest;
 import com.my131.backend.dto.AuthResponse;
 import com.my131.backend.dto.RegisterRequest;
 import com.my131.backend.dto.UserDto;
 import com.my131.backend.entity.AuthProvider;
 import com.my131.backend.entity.User;
+import com.my131.backend.exception.AuthenticationException;
+import com.my131.backend.exception.BadRequestException;
 import com.my131.backend.exception.UserAlreadyExistsException;
 import com.my131.backend.repository.UserRepository;
 import com.my131.backend.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -57,5 +63,35 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .user(UserDto.fromEntity(user)) // 엔티티 → DTO 변환
                 .build();
+    }
+
+    public AuthResponse authenticate(AuthRequest request) {
+        try {
+            log.info(" auth service : " , request);
+            // email, username 둘 중 하나로 로그인
+            String loginId = request.getEmail() != null ? request.getEmail() : request.getUsername();
+
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginId,
+                            request.getPassword()
+                    )
+            );
+            User user = userRepository.findByEmail(loginId)
+                    .or(() -> userRepository.findByUsername(loginId))
+                    .orElseThrow(() -> new AuthenticationException("Authentication failed"));
+
+            String jwtToken = jwtService.generateToken(user);
+            String refreshToken = jwtService.generateRefreshToken(user);
+
+            return AuthResponse.builder()
+                    .accessToken(jwtToken)
+                    .refreshToken(refreshToken)
+                    .user(UserDto.fromEntity(user))
+                    .build();
+
+        } catch (BadRequestException e) {
+            throw new AuthenticationException("Invalid email or password");
+        }
     }
 }
