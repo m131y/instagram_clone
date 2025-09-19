@@ -13,7 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 // =========================
 // User 엔티티 클래스
@@ -68,6 +70,11 @@ public class User implements UserDetails {
 
     // 계정 활성화 여부
     private boolean enabled;
+
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Post> posts = new HashSet<>();
 
     // 엔티티 저장 전 실행되는 메서드
     // 기본적으로 계정을 활성화(true) 상태로 생성
